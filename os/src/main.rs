@@ -8,11 +8,17 @@
 mod console;
 mod panic;
 mod sbi;
+mod interrupt;
 
 global_asm!(include_str!("entry.S"));
 
 #[no_mangle]
 pub extern "C" fn rust_main() -> ! {
-    println!("Hello rCore-Tutorial!");
-    panic!("end of rust_main")
+    interrupt::init();
+
+    unsafe {
+        llvm_asm!("ebreak"::::"volatile");
+    }
+
+    unreachable!();
 }
