@@ -4,7 +4,7 @@ use riscv::register::scause::{Scause, Exception, Interrupt, Trap};
 use super::context::Context;
 use super::timer;
 
-global_asm!(include_str!("./interrupt.S"));
+global_asm!(include_str!("interrupt.S"));
 
 pub fn init() {
     unsafe {
@@ -21,7 +21,6 @@ pub fn init() {
 /// This function is called by __interrupt
 #[no_mangle]
 pub fn handle_interrupt(context: &mut Context, scause: Scause, stval: usize) {
-
     match scause.cause() {
         Trap::Exception(Exception::Breakpoint) => breakpoint(context),
         Trap::Interrupt(Interrupt::SupervisorTimer) => timer::tick(),
