@@ -44,6 +44,7 @@ Tutorial里面其实讲的已经蛮详细的了，这里谈谈自己对free stan
 ELF文件前四个字节是.ELF这四个字符ascii构成的magic byte(注意endianness)。如果不做任何处理就丢给qemu运行的话，这四个字符(data)会被当成代码(code)执行，有很大的可能会引起undefined instruction exception。
 
 ## 改进
+1. `dbg!` macro
 之前提交了一个dbg! macro的pull request，现在已经被接受了。dbg！是自己平时rust编程中常用到的一个宏，简单来说就是print打法，但是更强大方便。往console输出变量值的同时显示文件名与行号并返回变量的值。同时自定义的结构体可以derive(Debug)，用dbg！显示出来也很清晰。代码大概长这样
 ```Rust
 #[macro_export]
@@ -65,5 +66,21 @@ macro_rules! dbgx {
     ($($val:expr),+ $(,)?) => {
         ($(dbgx!($val)),+,)
     };
+}
+```
+
+2. Enum for SBI call number
+不是很喜欢C风格的纯大写字常量，改写成了enum，每次需要读写值的时候转成usize。
+```Rust
+enum CallNum {
+    SetTimer = 0,
+    ConsolePutChar = 1,
+    ConsoleGetChar = 2,
+    ClearIPI = 3,
+    SendIPI = 4,
+    RemoteFenceI = 5,
+    RemoteSFenceVMA = 6,
+    RemoteSFenceVMAASID = 7,
+    Shutdown = 8,
 }
 ```
