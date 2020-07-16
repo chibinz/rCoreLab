@@ -15,7 +15,7 @@ use crate::memory::address::PhysicalPageNumber;
 lazy_static! {
     /// 帧分配器
     pub static ref FRAME_ALLOCATOR: Mutex<FrameAllocator<AllocatorImpl>> = Mutex::new(FrameAllocator::new(Range::from(
-            PhysicalPageNumber::ceil(*KERNEL_END_ADDRESS)..PhysicalPageNumber::floor(MEMORY_END_ADDRESS),
+            PhysicalPageNumber::ceil(PhysicalAddress::from(*KERNEL_END_ADDRESS))..PhysicalPageNumber::floor(MEMORY_END_ADDRESS),
         )
     ));
 }
@@ -49,6 +49,8 @@ impl<T: Allocator> FrameAllocator<T> {
     ///
     /// 这个函数会在 [`FrameTracker`] 被 drop 时自动调用，不应在其他地方调用
     pub(super) fn dealloc(&mut self, frame: &FrameTracker) {
+        dbgx!(frame.page_number(), self.start_ppn);
         self.allocator.dealloc(frame.page_number() - self.start_ppn);
+        dbgx!(frame.page_number(), self.start_ppn);
     }
 }

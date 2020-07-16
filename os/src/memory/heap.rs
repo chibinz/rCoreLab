@@ -1,13 +1,15 @@
 use super::config::KERNEL_HEAP_SIZE;
 use buddy_system_allocator::LockedHeap;
 
-static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
+pub static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
 
 #[global_allocator]
 static HEAP: LockedHeap = LockedHeap::empty();
 
 pub fn init() {
     unsafe {
+        HEAP_SPACE.iter().for_each(|byte| assert_eq!(*byte, 0));
+
         HEAP.lock().init(
             HEAP_SPACE.as_ptr() as usize, KERNEL_HEAP_SIZE
         )

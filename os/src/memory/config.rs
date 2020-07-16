@@ -1,6 +1,5 @@
 use lazy_static::*;
-use super::address::PhysicalAddress;
-
+use super::address::*;
 
 pub type MemoryResult<T> = Result<T, &'static str>;
 
@@ -13,8 +12,10 @@ pub const MEMORY_START_ADDRESS: PhysicalAddress = PhysicalAddress(0x8000_0000);
 pub const MEMORY_END_ADDRESS: PhysicalAddress = PhysicalAddress(0x8800_0000);
 
 lazy_static! {
-    pub static ref KERNEL_END_ADDRESS: PhysicalAddress = PhysicalAddress(kernel_end as usize);
+    pub static ref KERNEL_END_ADDRESS: VirtualAddress = VirtualAddress(kernel_end as usize);
 }
+
+pub const KERNEL_MAP_OFFSET: usize = 0xffff_ffff_0000_0000;
 
 extern "C" {
     // Label for end of kernel image
