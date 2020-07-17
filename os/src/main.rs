@@ -23,10 +23,18 @@ pub extern "C" fn rust_main() -> ! {
     interrupt::init();
     memory::init();
 
-    dbgx!(rust_main as usize);
+    let process = Process::new_kernel().unwrap();
 
-    let remap = memory::mapping::memory_set::MemorySet::new_kernel().unwrap();
-    remap.activate();
+    for message in 0..8 {
+        let thread = Thread::new(
+            process.clone(),
+            sample_process as usize,
+            Some(&[message]),
+        ).unwrap();
+        PROCESSOR.get().add_thread(thread);
+    }
 
-    panic!("Shutting down")
+    drop(process);
+
+    PROCESSOR.get().run()
 }

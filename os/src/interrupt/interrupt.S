@@ -4,7 +4,7 @@
 # length of general purpose registers in bytes
 .set reg_size, 8
 # No. of registers inside a context frame
-.set context_size, 34
+.set context_size, 36
 
 # Save register relative to sp
 .macro save reg, offset
@@ -27,6 +27,9 @@
 .section .text
 .global __interrupt
 __interrupt:
+    # Switch to kernel stack pointer
+    csrrw   sp, sscratch, sp
+
     # Allocate stack space
     addi    sp, sp, -context_size * reg_size
 
@@ -38,7 +41,7 @@ __interrupt:
     .endr
 
     # Correct sp
-    addi    t0, sp, context_size * reg_size
+    csrr    t0, sscratch
     save    t0, 2
 
     # Save csr registers
@@ -62,11 +65,16 @@ __interrupt:
 
 .global __restore
 __restore:
+    # a0 holds a pointer to context
+    mv      sp, a0
     # Restore csr registers
     load    t0, 32
     load    t1, 33
     csrw    sstatus, t0
     csrw    sepc, t1
+
+    addi    t0, sp, context_size * reg_size
+    csrw    sscratch, t0
 
     .set i, 3
     .rept 29

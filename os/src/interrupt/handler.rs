@@ -20,12 +20,14 @@ pub fn init() {
 
 /// This function is called by __interrupt
 #[no_mangle]
-pub fn handle_interrupt(context: &mut Context, scause: Scause, stval: usize) {
+pub fn handle_interrupt(context: &mut Context, scause: Scause, stval: usize) -> *mut Context {
     match scause.cause() {
         Trap::Exception(Exception::Breakpoint) => breakpoint(context),
         Trap::Interrupt(Interrupt::SupervisorTimer) => timer::tick(),
         _ => fault(context, scause, stval),
     }
+
+    context as *mut Context
 }
 
 fn breakpoint(context: &mut Context) {

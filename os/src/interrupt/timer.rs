@@ -1,5 +1,5 @@
 use crate::sbi::set_timer;
-use riscv::register::{sie, sstatus, time};
+use riscv::register::{sie, time};
 
 // Ticks / Cycles til next timer interrupt
 static INTERVAL: usize = 100000;
@@ -9,7 +9,9 @@ pub fn init() {
     unsafe {
         // Enable timer interrupt
         sie::set_stimer();
-        sstatus::set_sie();
+
+        // Do not enable enable interrupt at boot
+        // sstatus::set_sie();
     }
 
     set_next_timeout();
