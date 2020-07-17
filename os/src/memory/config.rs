@@ -1,5 +1,5 @@
-use lazy_static::*;
 use super::address::*;
+use lazy_static::*;
 
 pub type MemoryResult<T> = Result<T, &'static str>;
 

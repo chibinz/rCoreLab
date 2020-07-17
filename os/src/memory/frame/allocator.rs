@@ -2,15 +2,14 @@
 //!
 //! 返回的 [`FrameTracker`] 类型代表一个帧，它在被 drop 时会自动将空间补回分配器中。
 
-use super::*;
 use crate::memory::*;
 use algorithm::*;
 use lazy_static::*;
 use spin::Mutex;
 
-use crate::memory::range::Range;
-use crate::memory::config::MemoryResult;
-use crate::memory::address::PhysicalPageNumber;
+use crate::memory::{address::PhysicalPageNumber, config::MemoryResult, range::Range};
+
+use super::frame_tracker::FrameTracker;
 
 lazy_static! {
     /// 帧分配器

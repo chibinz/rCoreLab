@@ -3,12 +3,18 @@
 //! 许多方法返回 [`Result`]，如果出现错误会返回 `Err(message)`。设计目标是，此时如果终止线程，则不会产生后续问题。
 //! 但是如果错误是由操作系统代码逻辑产生的，则会直接 panic。
 
+use super::{
+    page_table::{PageTable, PageTableTracker},
+    page_table_entry::{Flags, PageTableEntry},
+    segment::Segment,
+};
+
 use crate::memory::{
     address::*,
-    frame::{FrameTracker, FRAME_ALLOCATOR},
-    mapping::{Flags, PageTable, PageTableEntry, PageTableTracker, Segment},
+    frame::{allocator::FRAME_ALLOCATOR, frame_tracker::FrameTracker},
     MemoryResult,
 };
+
 use alloc::{vec, vec::Vec};
 
 #[derive(Default)]

@@ -1,4 +1,6 @@
-use crate::memory::{address::*, FRAME_ALLOCATOR};
+use crate::memory::address::*;
+
+use super::allocator::FRAME_ALLOCATOR;
 
 pub struct FrameTracker(pub(super) PhysicalPageNumber);
 

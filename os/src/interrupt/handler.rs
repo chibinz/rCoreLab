@@ -1,5 +1,5 @@
+use riscv::register::scause::{Exception, Interrupt, Scause, Trap};
 use riscv::register::stvec;
-use riscv::register::scause::{Scause, Exception, Interrupt, Trap};
 
 use super::context::Context;
 use super::timer;

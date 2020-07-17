@@ -12,7 +12,8 @@
 //! 5.  将页表项中的页号作为下一级查询目标，查询直到达到最低级的页表，最终得到页号
 
 use super::page_table_entry::PageTableEntry;
-use crate::memory::{address::*, config::PAGE_SIZE, frame::FrameTracker};
+use crate::memory::{address::*, config::PAGE_SIZE, frame::frame_tracker::FrameTracker};
+
 /// 存有 512 个页表项的页表
 ///
 /// 注意我们不会使用常规的 Rust 语法来创建 `PageTable`。相反，我们会分配一个物理页，

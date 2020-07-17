@@ -1,13 +1,14 @@
+use alloc::{boxed::Box, vec, vec::Vec};
+
 use crate::memory::{
-    address::*,
-    config::*,
-    frame::FrameTracker,
-    range::Range,
-    MemoryResult,
+    address::*, config::*, frame::frame_tracker::FrameTracker, range::Range, MemoryResult,
 };
 
-use super::*;
-use alloc::{vec, vec::Vec, boxed::Box};
+use super::{
+    mapping::Mapping,
+    page_table_entry::Flags,
+    segment::{MapType, Segment},
+};
 
 
 /// 一个线程所有关于内存空间管理的信息
@@ -52,26 +53,20 @@ impl MemorySet {
             // .data 段，rw-
             Segment {
                 map_type: MapType::Linear,
-                range: Range::<VirtualAddress>::from(
-                    (data_start as usize)..(bss_start as usize),
-                )
-                .into(),
+                range: Range::<VirtualAddress>::from((data_start as usize)..(bss_start as usize))
+                    .into(),
                 flags: Flags::VALID | Flags::READABLE | Flags::WRITABLE,
             },
             // .bss 段，rw-
             Segment {
                 map_type: MapType::Linear,
-                range: Range::from(
-                    VirtualAddress::from(bss_start as usize)..*KERNEL_END_ADDRESS,
-                ),
+                range: Range::from(VirtualAddress::from(bss_start as usize)..*KERNEL_END_ADDRESS),
                 flags: Flags::VALID | Flags::READABLE | Flags::WRITABLE,
             },
             // 剩余内存空间，rw-
             Segment {
                 map_type: MapType::Linear,
-                range: Range::from(
-                    *KERNEL_END_ADDRESS..VirtualAddress::from(MEMORY_END_ADDRESS),
-                ),
+                range: Range::from(*KERNEL_END_ADDRESS..VirtualAddress::from(MEMORY_END_ADDRESS)),
                 flags: Flags::VALID | Flags::READABLE | Flags::WRITABLE,
             },
         ];
