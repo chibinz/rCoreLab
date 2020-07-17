@@ -1,3 +1,12 @@
+# la translates into auipc, addi.
+# That mean's you'll still be around 0x80000000.
+# lui, on the other hand, uses absolute addressing
+# Load absolute address of symbol into register
+.macro la_abs rd, symbol
+    lui \rd, %hi(\symbol)
+    addi \rd, \rd, %lo(\symbol)
+.endm
+
 .section .text.entry
 .global _start
 _start:
@@ -11,15 +20,10 @@ _start:
     csrw satp, t0
     sfence.vma
 
-    # la translates into auipc, addi.
-    # That mean's you'll still be around 0x80000000.
-    # lui, on the other hand, uses absoluted addressing
-    lui sp, %hi(boot_stack_top)
-    addi sp, sp, %lo(boot_stack_top)
+    # Load VIRTUAL address of boot_stack_top and rust_main
+    la_abs sp, boot_stack_top
+    la_abs t0, rust_main
 
-    # jump to rust main
-    lui t0, %hi(rust_main)
-    addi t0, t0, %lo(rust_main)
     jr t0
 
 .section .bss.stack
