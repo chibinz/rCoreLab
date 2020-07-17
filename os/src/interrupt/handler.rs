@@ -1,5 +1,9 @@
-use riscv::register::scause::{Exception, Interrupt, Scause, Trap};
-use riscv::register::stvec;
+use riscv::register::{
+    scause::{Exception, Interrupt, Scause, Trap},
+    stvec,
+};
+use alloc::{format, string::String};
+use crate::process::PROCESSOR;
 
 use super::context::Context;
 use super::timer;
@@ -23,20 +27,37 @@ pub fn init() {
 pub fn handle_interrupt(context: &mut Context, scause: Scause, stval: usize) -> *mut Context {
     match scause.cause() {
         Trap::Exception(Exception::Breakpoint) => breakpoint(context),
-        Trap::Interrupt(Interrupt::SupervisorTimer) => timer::tick(),
-        _ => fault(context, scause, stval),
-    }
-
-    context as *mut Context
+        Trap::Interrupt(Interrupt::SupervisorTimer) => supervisor_timer(context),
+        _ => Err(format!(
+            "unimplemented interrupt type: {:x?}",
+            scause.cause()
+        )),
+    }.unwrap_or_else(|m| fault(m, scause, stval))
 }
 
-fn breakpoint(context: &mut Context) {
+/// 处理时钟中断
+fn supervisor_timer(context: &mut Context) -> Result<*mut Context, String> {
+    timer::tick();
+    PROCESSOR.get().park_current_thread(context);
+    Ok(PROCESSOR.get().prepare_next_thread())
+}
+
+
+fn breakpoint(context: &mut Context) -> Result <*mut Context, String>{
     println!("Breakpoint at 0x{:x}", context.sepc);
     // This relies on the RISC-V C extension to function correctly
     context.sepc += 2;
+    Ok(context)
 }
 
-fn fault(context: &mut Context, scause: Scause, stval: usize) {
-    dbgx!(scause.cause(), &context, stval);
-    panic!("Unresolved interrupt");
+fn fault(msg: String, scause: Scause, stval: usize) -> *mut Context {
+    println!(
+        "{:#x?} terminated: {}",
+        PROCESSOR.get().current_thread(),
+        msg
+    );
+    println!("cause: {:?}, stval: {:x}", scause.cause(), stval);
+
+    PROCESSOR.get().kill_current_thread();
+    PROCESSOR.get().prepare_next_thread()
 }

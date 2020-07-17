@@ -1,12 +1,8 @@
 //! 映射类型 [`MapType`] 和映射片段 [`Segment`]
 
-use crate::memory::address::*;
-use crate::memory::range::Range;
-
-use super::page_table_entry::Flags;
+use crate::memory::{address::*, mapping::Flags, range::Range};
 
 /// 映射的类型
-#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MapType {
     /// 线性映射，操作系统使用

@@ -3,19 +3,16 @@
 //! 许多方法返回 [`Result`]，如果出现错误会返回 `Err(message)`。设计目标是，此时如果终止线程，则不会产生后续问题。
 //! 但是如果错误是由操作系统代码逻辑产生的，则会直接 panic。
 
-use super::{
-    page_table::{PageTable, PageTableTracker},
-    page_table_entry::{Flags, PageTableEntry},
-    segment::Segment,
-};
-
 use crate::memory::{
     address::*,
-    frame::{allocator::FRAME_ALLOCATOR, frame_tracker::FrameTracker},
+    config::PAGE_SIZE,
+    frame::{FrameTracker, FRAME_ALLOCATOR},
+    mapping::{Flags, MapType, PageTable, PageTableEntry, PageTableTracker, Segment},
     MemoryResult,
 };
-
 use alloc::{vec, vec::Vec};
+use core::cmp::min;
+use core::ptr::slice_from_raw_parts_mut;
 
 #[derive(Default)]
 /// 某个进程的内存映射关系
@@ -26,7 +23,6 @@ pub struct Mapping {
     root_ppn: PhysicalPageNumber,
 }
 
-#[allow(dead_code)]
 impl Mapping {
     /// 将当前的映射加载到 `satp` 寄存器并记录
     pub fn activate(&self) {
@@ -52,34 +48,68 @@ impl Mapping {
 
     /// 加入一段映射，可能会相应地分配物理页面
     ///
-    /// - `init_data`
-    ///     复制一段内存区域来初始化新的内存区域，其长度必须等于 `segment` 的大小。
-    ///
-    ///
     /// 未被分配物理页面的虚拟页号暂时不会写入页表当中，它们会在发生 PageFault 后再建立页表项。
     pub fn map(
         &mut self,
         segment: &Segment,
+        init_data: Option<&[u8]>,
     ) -> MemoryResult<Vec<(VirtualPageNumber, FrameTracker)>> {
-        // segment 可能可以内部做好映射
-        if let Some(ppn_iter) = segment.iter_mapped() {
-            // segment 可以提供映射，那么直接用它得到 vpn 和 ppn 的迭代器
-            println!("map {:x?}", segment.range);
-            for (vpn, ppn) in segment.page_range().iter().zip(ppn_iter) {
-                self.map_one(vpn, ppn, segment.flags)?;
+        match segment.map_type {
+            // 线性映射，直接对虚拟地址进行转换
+            MapType::Linear => {
+                for vpn in segment.page_range().iter() {
+                    self.map_one(vpn, vpn.into(), segment.flags | Flags::VALID)?;
+                }
+                // 拷贝数据
+                if let Some(data) = init_data {
+                    unsafe {
+                        (&mut *slice_from_raw_parts_mut(segment.range.start.deref(), data.len()))
+                            .copy_from_slice(data);
+                    }
+                }
+                Ok(Vec::new())
             }
-            Ok(vec![])
-        } else {
-            // 需要再分配帧进行映射
-            // 记录所有成功分配的页面映射
-            let mut allocated_pairs = vec![];
-            for vpn in segment.page_range().iter() {
-                let frame: FrameTracker = FRAME_ALLOCATOR.lock().alloc()?;
-                println!("map {:x?} -> {:x?}", vpn, frame.page_number());
-                self.map_one(vpn, frame.page_number(), segment.flags)?;
-                allocated_pairs.push((vpn, frame));
+            // 需要分配帧进行映射
+            MapType::Framed => {
+                // 记录所有成功分配的页面映射
+                let mut allocated_pairs = Vec::new();
+                for vpn in segment.page_range().iter() {
+                    // 分配物理页面
+                    let mut frame = FRAME_ALLOCATOR.lock().alloc()?;
+                    // 映射，填充 0，记录
+                    self.map_one(vpn, frame.page_number(), segment.flags | Flags::VALID)?;
+                    frame.fill(0);
+                    allocated_pairs.push((vpn, frame));
+                }
+
+                // 拷贝数据，注意页表尚未应用，无法直接从刚刚映射的虚拟地址访问，因此必须用物理地址 + 偏移来访问。
+                if let Some(data) = init_data {
+                    // 对于 bss，参数会传入 data，但其长度为 0。我们已经在前面用 0 填充过页面了，因此跳过
+                    if !data.is_empty() {
+                        for (vpn, frame) in allocated_pairs.iter_mut() {
+                            // 拷贝时必须考虑区间与整页不对齐的情况
+                            //    start（仅第一页时非零）
+                            //      |        stop（仅最后一页时非零）
+                            // 0    |---data---|          4096
+                            // |------------page------------|
+                            let page_address = VirtualAddress::from(*vpn);
+                            let start = if segment.range.start > page_address {
+                                segment.range.start - page_address
+                            } else {
+                                0
+                            };
+                            let stop = min(PAGE_SIZE, segment.range.end - page_address);
+                            // 计算来源和目标区间并进行拷贝
+                            let dst_slice = &mut frame[start..stop];
+                            let src_slice = &data[(page_address + start - segment.range.start)
+                                ..(page_address + stop - segment.range.start)];
+                            dst_slice.copy_from_slice(src_slice);
+                        }
+                    }
+                }
+
+                Ok(allocated_pairs)
             }
-            Ok(allocated_pairs)
         }
     }
 

@@ -5,16 +5,19 @@
 #![feature(global_asm)]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
-
+#![feature(slice_fill)]
 #[macro_use]
 mod console;
 mod interrupt;
 mod memory;
 mod panic;
 mod sbi;
+mod process;
 
 /// Needed if you want to define your own allocator
 extern crate alloc;
+
+use process::*;
 
 global_asm!(include_str!("entry.S"));
 
@@ -37,4 +40,12 @@ pub extern "C" fn rust_main() -> ! {
     drop(process);
 
     PROCESSOR.get().run()
+}
+
+fn sample_process(message: usize) {
+    for i in 0..1000000 {
+        if i % 200000 == 0 {
+            println!("thread {}", message);
+        }
+    }
 }

@@ -20,7 +20,6 @@ use bitflags::*;
 #[derive(Copy, Clone, Default)]
 pub struct PageTableEntry(usize);
 
-#[allow(dead_code)]
 impl PageTableEntry {
     /// 将相应页号和标志写入一个页表项
     pub fn new(page_number: PhysicalPageNumber, flags: Flags) -> Self {
@@ -34,7 +33,6 @@ impl PageTableEntry {
     pub fn clear(&mut self) {
         self.0 = 0;
     }
-
     /// 获取页号
     pub fn page_number(&self) -> PhysicalPageNumber {
         PhysicalPageNumber::from(self.0.get_bits(10..54))
@@ -93,3 +91,25 @@ bitflags! {
         const DIRTY =       1 << 7;
     }
 }
+
+macro_rules! implement_flags {
+    ($field: ident, $name: ident, $quote: literal) => {
+        impl Flags {
+            #[doc = "返回 `Flags::"]
+            #[doc = $quote]
+            #[doc = "` 或 `Flags::empty()`"]
+            pub fn $name(value: bool) -> Flags {
+                if value {
+                    Flags::$field
+                } else {
+                    Flags::empty()
+                }
+            }
+        }
+    };
+}
+
+implement_flags! {USER, user, "USER"}
+implement_flags! {READABLE, readable, "READABLE"}
+implement_flags! {WRITABLE, writable, "WRITABLE"}
+implement_flags! {EXECUTABLE, executable, "EXECUTABLE"}
