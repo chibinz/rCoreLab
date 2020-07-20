@@ -14,6 +14,10 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 spin = "0.5.2"
 bitflags = "1.2.1"
 bit_field = "0.10.0"
+device_tree = { git = "https://github.com/rcore-os/device_tree-rs" }
+virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers" }
+rcore-fs = { git = "https://github.com/rcore-os/rcore-fs"}
+rcore-fs-sfs = { git = "https://github.com/rcore-os/rcore-fs"}
 
 [profile.dev]
 panic = "abort"

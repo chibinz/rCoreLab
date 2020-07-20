@@ -43,7 +43,10 @@ boot_page_table:
     # 0x8000_0000 -> 0x8000_0000
     # 0xcf sets VRWXAD bits
     .8byte (0x80000 << 10) | 0xcf
-    .zero 507 * 8
+    .zero 505 * 8
+    # Device tree virtual memory map
+    .8byte (0x00000 << 10) | 0xcf
+    .8byte 0
     # 510th entry
     .8byte (0x80000 << 10) | 0xcf
     .8byte 0
