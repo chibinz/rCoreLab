@@ -29,9 +29,17 @@ Process->MemorySet->Mapping->Vec<PageTableTracker>--取根表-->PageTableTracker
     - Stack
 之前在DailySchedule中说thread的state仅处在Context里面，做完实验之后发现不太准确。每个线程都有自己独立的栈，栈上的数据也属于线程的状态。stack的初始化和物理页分配在process的alloc_page_range函数里面，先分配物理页，再从没有被占用的连续虚拟地址取出来一块，最后建立两者的映射关系。Context没有呢么多花哨的东西，设置好栈指针，入口，传给程序的参数，以及权限就行了。
 
-4. 第一个线程的不同之处/内核栈
-一直不太明白sscratch或者sp寄存器是什么时候被写入KERNEL_STACK的地址的。
+4. 内核栈
+一直不太明白sscratch或者sp寄存器是什么时候被写入KERNEL_STACK的地址的。操作系统启动的时候使用的栈是entry.S里面的boot_stack，此时sp被设置为boot_stack_top这个符号的地址。然而并没有看到有一条汇编指令把sp设置成KERNEL_STACK的地址。用gdb调了一下，发现藏得蛮深的。具体过程是
+rust_main -> Process::run -> Thread::prepare -> KernelStack::push_context
+```Rust
+let stack_top = &self.0 as *const _ as usize + size_of::<Self>();
+```
+self.0其实就是KERNEL_STACK，把它转为指针获得基址，随后再加上偏移获得栈顶的地址。因为Context derive了Clone，Copy，所以才可以这么写，`*push_address = context`，把上下文放在内核栈上。最最最重要的其实是返回值，a0寄存器里面存了push_address。::run()返回之后没有任何其他代码，直接跳转到__restore的地址，因此a0寄存器的值不会被覆盖。它会在interrupt.S里面被复制到sp里面，而sp会在退出中断的时候与sscratch做交换。一开始找，没找到的原因是只看了Thread::new，而实际上内核栈地址的写入在线程开始运行的时候发生。还有一个问题没有太搞清楚，有了内核栈KERNEL_STACK之后boot_stack是不是就废弃了？
 
-## 改进
-1. 实现一个BSD scheduler
+## 改进 TODO
+1. 实现Pintos 里面提到BSD scheduler
 2. 减少封装的层数
+    - Process -> PageTable
+    - Processor -> Scheduler
+    - ...
