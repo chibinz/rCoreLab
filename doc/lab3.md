@@ -17,7 +17,20 @@ auipc rd, %pcrel_hi(symbol)
 addi  rd, rd, %pcrel_hi(symbol)
 ```
 此时的pc还是指向物理地址，也就是0x80200000附近，所以跳转的地址也是低地址，相当于没有用上0xffff_ffff_8000_0000-> 0x8000_0000的映射。
-
+- la
+```
+[src/main.rs:26] rust_main as usize = 0x80201ea8
+panic: 'attempt to subtract with overflow'
+```
+- la_abs
+```
+[src/main.rs:26] rust_main as usize = 0xffffffff80201ea8
+map Range { start: VirtualAddress(ffffffff80200000), end: VirtualAddress(ffffffff80211000) }
+map Range { start: VirtualAddress(ffffffff80211000), end: VirtualAddress(ffffffff80216000) }
+map Range { start: VirtualAddress(ffffffff80216000), end: VirtualAddress(ffffffff80217000) }
+map Range { start: VirtualAddress(ffffffff80217000), end: VirtualAddress(ffffffff80a28000) }
+map Range { start: VirtualAddress(ffffffff80a28000), end: VirtualAddress(ffffffff88000000) }
+```
 2. 实验中PageTableTracker::new()函数没有看懂……
 ```Rust
 pub fn new(frame: FrameTracker) -> Self {

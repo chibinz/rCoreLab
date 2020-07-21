@@ -34,9 +34,28 @@ Tutorial里面其实讲的已经蛮详细的了，这里谈谈自己对free stan
 
 对于与entry.S链接生成的os elf文件做objdump
 ```
+rust-objdump target/riscv64imac-unknown-none-elf/debug/os -d
+
+target/riscv64imac-unknown-none-elf/debug/os:   file format ELF64-riscv
+
+Disassembly of section .text:
+
+0000000080200000 text_start:
+80200000: 17 01 01 00                   auipc   sp, 16
+80200004: 13 01 41 01                   addi    sp, sp, 20
+80200008: 97 00 00 00                   auipc   ra, 0
+8020000c: e7 80 80 00                   jalr    8(ra)
+
+0000000080200010 rust_main:
+80200010: 09 a0                         j       2
+80200012: 01 a0                         j       0
 ```
 以及objcopy出来的kernel.bin做hexdump，
 ```
+hexdump -C target/riscv64imac-unknown-none-elf/debug/kernel.bin
+00000000  17 01 01 00 13 01 41 01  97 00 00 00 e7 80 80 00  |......A.........|
+00000010  09 a0 01 a0                                       |....|
+00000014
 ```
 发现两者有惊人的相似之处。原本entry.S里面只有两条指令，为什么反汇编出来有4条呢？这里做了一些注释。
 
