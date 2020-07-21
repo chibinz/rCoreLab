@@ -1,0 +1,18 @@
+# Lab 5 学习记录
+
+## 问题
+教程的硬盘镜像用的是TST_IMG，然而仓库里面用的是IMG_FILE，如果不加修改的直接运行话会报错。可能是因为Disk.img用的不是sfs，把Makefile中的Disk.img改成Raw.img就能运行了。但是好像只能读不能写，ls运行正常但是mkdir就会panic。问题出在外部rCore-fs crate里面，估计自己用rcore-fs-fuse生成一个镜像就行了。
+
+## 思考
+1. 设备树
+设备树个人的理解是一种协议，方便操作系统在不同的硬件平台上用统一的方法获取硬件的信息。设备树的根节点是由openSBI传入的，存在a1寄存器里面。这个是物理地址，然而进入到rust_main里面之后就运行在虚拟内存中了。如果不做变动直接对传入的地址解引用就会产生page fault。需要在boot_page_table里面添加一项从0xffffffff_00000000到0x00000000的映射。选取这个物理地址大概是因为和之前保持同样的kernel_map_offset吧。walk本身是一个递归函数，对设备树进行先序深度优先遍历(preorder depth first traversal)。
+
+2. 块设备 Block device
+教程因为篇幅的原因只介绍了block device的初始化，其他的设备像network device等暂时都忽略掉了。初始化的过程也是由外部crate实现的，只需要把header传给virtio_drivers就行了。块设备读写的最小单元是一个block，通常来说顺序读写的性能要远好于随机读写，更大的block能够更好的exploit locality，提升性能。硬盘是最常见的块设备，机械硬盘的一个block对应一个sector，512Byte，固态硬盘的一个block是4KiB，正好和内存页大小一样，方便做页置换。
+
+2. DMA
+由于block device的读写速度远远落后于cpu，因此在往硬盘读写数据的时候一般不用cpu的load/store指令完成，而是通过DMA把所需要的数据块拷到内存里面，完成之后产生中断，告知cpu读写已经完成。做IO的线程会主动yield，把cpu时间留给其他线程。这样一来，读写过程中cpu就避免了阻塞式的busy wait，在DMA干活的时候做一些其他事情。虽然说块设备读写相对于cpu很慢，但是对人来说也就几毫秒，加上qemu的虚拟块设备其实在内存中，读写也不慢，教程为了方便理解还是用的阻塞式的IO。
+
+
+## 改进 TODO
+1. 为设备树实现Iterator trait，这样就可以方便的用filter和map来优雅的获取所有的block device。
