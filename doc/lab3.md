@@ -63,10 +63,9 @@ RISC-V Privileged ISA提到物理地址的最高10位是reserved，给出来的�
 大意就是说空出来的这10个bit可以用来做一些优化，而且56比特对应的64PiB容量其实已经蛮大的了，如果未来物理内存空间不够用的话也可以把这10位扩充为物理地址。
 
 7. Segment
-为了知道那一段从哪里开始到哪里结束，rCore把各个段的起止地址和可读写执行信息硬编码进了memory set模块里面，这个其实就是elf header的所保存的信息。因为kernel的.text段必须在最前面，有没有可能把ELF header放在后面，这样就不用硬编码每段信息，同时ELF header parser可在用户程序中复用。
+为了知道那一段从哪里开始到哪里结束，rCore把各个段的起止地址和可读写执行信息硬编码进了memory set模块里面，这个其实就是elf header的所保存的信息。现在之所以kernel是raw binary而不是ELF的原因在于kernel的.text段必须在最前面，0x80200000对应操作系统的入口。如果能够把ELF header放在后面的话，可以写一个ELF parser，这样就不用硬编码每段信息，同时用户程序中可以复用。
 
-## 改进
-TODO:
+## 改进 TODO
 1. 现在VirtualPageNumber是通过levels()获取对应层级页表索引。如果实现Index Trait的话可以更优雅一些。
 2. 把所有symbol放到同一个文件里面，方便找。
 3. 写一个which_segment函数，给出page_table和虚拟地址，返回这个地址所在的segment。
