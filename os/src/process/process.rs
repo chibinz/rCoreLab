@@ -1,6 +1,7 @@
 //! 进程 [`Process`]
 
 use super::*;
+use xmas_elf::ElfFile;
 
 /// 进程的信息
 pub struct Process {
@@ -17,6 +18,14 @@ impl Process {
         Ok(Arc::new(RwLock::new(Self {
             is_user: false,
             memory_set: MemorySet::new_kernel()?,
+        })))
+    }
+
+    /// 创建进程，从文件中读取代码
+    pub fn from_elf(file: &ElfFile, is_user: bool) -> MemoryResult<Arc<RwLock<Self>>> {
+        Ok(Arc::new(RwLock::new(Self {
+            is_user,
+            memory_set: MemorySet::from_elf(file, is_user)?,
         })))
     }
 

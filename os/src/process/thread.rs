@@ -1,6 +1,7 @@
 //! 线程 [`Thread`]
 
 use super::*;
+use crate::fs::*;
 use core::hash::{Hash, Hasher};
 
 /// 线程 ID 使用 `isize`，可以用负数表示错误
@@ -28,6 +29,8 @@ pub struct ThreadInner {
     pub context: Option<Context>,
     /// 是否进入休眠
     pub sleeping: bool,
+    /// 打开的文件
+    pub descriptors: Vec<Arc<dyn INode>>,
 }
 
 impl Thread {
@@ -81,6 +84,7 @@ impl Thread {
             inner: Mutex::new(ThreadInner {
                 context: Some(context),
                 sleeping: false,
+                descriptors: vec![STDIN.clone(), STDOUT.clone()],
             }),
         });
 

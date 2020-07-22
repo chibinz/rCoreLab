@@ -1,4 +1,3 @@
-
 #![no_std]
 #![no_main]
 #![feature(llvm_asm)]
@@ -8,19 +7,22 @@
 #![feature(slice_fill)]
 #[macro_use]
 mod console;
-mod interrupt;
-mod memory;
-mod panic;
-mod sbi;
-mod process;
 mod drivers;
 mod fs;
+mod interrupt;
+mod kernel;
+mod memory;
+mod panic;
+mod process;
+mod sbi;
 
 /// Needed if you want to define your own allocator
 extern crate alloc;
 
-use process::*;
 use memory::PhysicalAddress;
+use process::*;
+use xmas_elf::ElfFile;
+use fs::INodeExt;
 
 global_asm!(include_str!("entry.S"));
 
@@ -31,25 +33,12 @@ pub extern "C" fn rust_main(_hart_id: usize, dtb_pa: PhysicalAddress) -> ! {
     drivers::init(dtb_pa);
     fs::init();
 
-    let process = Process::new_kernel().unwrap();
-
-    PROCESSOR
-        .get()
-        .add_thread(Thread::new(process.clone(), simple as usize, Some(&[0])).unwrap());
-
-    // 把多余的 process 引用丢弃掉
-    drop(process);
+    let app = fs::ROOT_INODE.find("hello_world").unwrap();
+    let data = app.readall().unwrap();
+    let elf = ElfFile::new(data.as_slice()).unwrap();
+    let process = Process::from_elf(&elf, true).unwrap();
+    let thread = Thread::new(process, elf.header.pt2.entry_point() as usize, None).unwrap();
+    PROCESSOR.get().add_thread(thread);
 
     PROCESSOR.get().run()
-}
-
-/// 测试任何内核线程都可以操作文件系统和驱动
-fn simple(id: usize) {
-    println!("hello from thread id {}", id);
-    // 新建一个目录
-    // 输出根文件目录内容
-    fs::ls("hello_world");
-    fs::ls("../../notebook");
-
-    loop {}
 }
