@@ -2,18 +2,18 @@
 
 ## 实验题
 ### 原理：在 rust_main 函数中，执行 ebreak 命令后至函数结束前，sp 寄存器的值是怎样变化的？
-问的其实就是interrupt.S里面sp的变化。sp一开始的值指向boot_stack的某一地址。进入__interrupt之后会分配一定的栈空间给将要保存的通用寄存器和特权寄存器，lab-1里面是34\*8个字节，后面改成了36\*8个字节。分配完之后进入handle_interrupt函数，常规的function prologue和epilogue，在进入和退出函数时保持栈平衡。回到__restore之后先恢复其他的寄存器，最后恢复sp的值。
+问的其实就是interrupt.S里面sp的变化。sp一开始的值指向boot_stack的某一地址。进入__interrupt之后会分配一定的栈空间给将要保存的通用寄存器和特权寄存器，sp -= sizeof::<Context>()。保存sp的时候需要重新计算原来的值。分配完之后进入handle_interrupt函数。常规的function prologue和epilogue，在进入和退出函数时保持栈平衡。回到__restore之后先恢复其他的寄存器，最后恢复sp的值。
 
 ### 分析：如果去掉 rust_main 后的 panic 会发生什么，为什么？
-Undefined behavior. lab-1中rust_main应该会返回到entry.S里面，后面的lab中rust_main被设置成-> !，noreturn，不会返回。不论是上述哪两种情况都会产生fall through。如果后面跟的是代码就会没有正确传参的情况下执行某一函数。如果后面跟的是数据的话会把数据当成代码来执行。总之最大的可能可能是产生某种exception，被interrupt_handler捕获。
+Undefined behavior。lab-1中rust_main应该会返回到entry.S里面，后面的lab中rust_main被设置成-> !，不会返回。不论是上述哪种情况都会产生fall through。如果后面跟的是代码,就会在没有正确传参的情况下执行某一函数。如果后面跟的是数据,就会把数据当成代码来执行。总之最大的可能可能是产生某种exception，被interrupt_handler捕获。
 
 ### 实验
-1. 如果程序访问不存在的地址，会得到 Exception::LoadFault。模仿捕获 ebreak 和时钟中断的方法，捕获 LoadFault（之后 panic 即可）。
+### 1. 如果程序访问不存在的地址，会得到 Exception::LoadFault。模仿捕获 ebreak 和时钟中断的方法，捕获 LoadFault（之后 panic 即可）。
 ```Rust
-Trap::Exception(Exception::LoadFault) => handle_load_fault()
+Trap::Exception(Exception::LoadFault) => handle_load_fault(),
 ```
 
-2. 在处理异常的过程中，如果程序想要非法访问的地址是 0x0，则打印 SUCCESS!
+### 2. 在处理异常的过程中，如果程序想要非法访问的地址是 0x0，则打印 SUCCESS!
 ```Rust
 fn handle_load_fault() {
     if stval() == 0x0 {
@@ -22,9 +22,9 @@ fn handle_load_fault() {
 }
 ```
 
-3. 添加或修改少量代码，使得运行时触发这个异常，并且打印出 SUCCESS!。
-    - 要求：不允许添加或修改任何 unsafe 代码
-Rust里面写内联汇编必须加unsafe，因此直接在interrupt.S加入相关的汇编指令即可
+### 3. 添加或修改少量代码，使得运行时触发这个异常，并且打印出 SUCCESS!。
+- 要求：不允许添加或修改任何 unsafe 代码。Rust里面写内联汇编必须加unsafe，因此直接在interrupt.S加入相关的汇编指令即可。
+
 ```
 lw  zero, 0(zero)
 ```
