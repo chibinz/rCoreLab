@@ -1,5 +1,35 @@
 # Lab 1 学习记录
 
+## 实验题
+### 原理：在 rust_main 函数中，执行 ebreak 命令后至函数结束前，sp 寄存器的值是怎样变化的？
+问的其实就是interrupt.S里面sp的变化。sp一开始的值指向boot_stack的某一地址。进入__interrupt之后会分配一定的栈空间给将要保存的通用寄存器和特权寄存器，lab-1里面是34\*8个字节，后面改成了36\*8个字节。分配完之后进入handle_interrupt函数，常规的function prologue和epilogue，在进入和退出函数时保持栈平衡。回到__restore之后先恢复其他的寄存器，最后恢复sp的值。
+
+### 分析：如果去掉 rust_main 后的 panic 会发生什么，为什么？
+Undefined behavior. lab-1中rust_main应该会返回到entry.S里面，后面的lab中rust_main被设置成-> !，noreturn，不会返回。不论是上述哪两种情况都会产生fall through。如果后面跟的是代码就会没有正确传参的情况下执行某一函数。如果后面跟的是数据的话会把数据当成代码来执行。总之最大的可能可能是产生某种exception，被interrupt_handler捕获。
+
+### 实验
+1. 如果程序访问不存在的地址，会得到 Exception::LoadFault。模仿捕获 ebreak 和时钟中断的方法，捕获 LoadFault（之后 panic 即可）。
+```Rust
+Trap::Exception(Exception::LoadFault) => handle_load_fault()
+```
+
+2. 在处理异常的过程中，如果程序想要非法访问的地址是 0x0，则打印 SUCCESS!
+```Rust
+fn handle_load_fault() {
+    if stval() == 0x0 {
+        println!("SUCCESS");
+    }
+}
+```
+
+3. 添加或修改少量代码，使得运行时触发这个异常，并且打印出 SUCCESS!。
+    - 要求：不允许添加或修改任何 unsafe 代码
+Rust里面写内联汇编必须加unsafe，因此直接在interrupt.S加入相关的汇编指令即可
+```
+lw  zero, 0(zero)
+```
+不在entry.S前面加是因为这个时候中断相关特权寄存器还没有设置好，不会跳到我们指定的interrupt handler。
+
 ## 问题
 1. `interrupt.asm`直接复制黏贴导致的store fault
 因为interrupt.S大部分代码其实是在保存通用寄存器，所以不是很想一行一行的敲了，把rCore-Tutorial里面的interrupt.asm直接复制黏贴过来了。结果运行的时候遇到了store exception，看来是往禁止的地方写了东西。仔细检查发现, 在保存context之前把sp和sscratch做了交换，sp指向了后面才会实现的内核栈，因此产生了exception。后面按照洛佳同学提出的方法把30个SAVE合成了一个loop，干净很多。
