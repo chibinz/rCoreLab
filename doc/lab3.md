@@ -1,5 +1,38 @@
 # Lab 3 学习记录
 
+## 实验题
+### 原理：在 os/src/entry.asm 中，boot_page_table 的意义是什么？当跳转执行 rust_main 时，不考虑缓存，硬件通过哪些地址找到了 rust_main 的第一条指令？
+- bootstrapping. 按照`linker.ld`里面`BASE_ADDRESS`的定义，所有操作系统的符号都位于高地址，也就是0xffff开头的地址。但OpenSBI只负责把pc放到0x80200000这个地址，虚拟内存的开启和页表的加载需要操作系统来完成。为了能够让操作系统正常启动，我们把把页表硬编码进代码里面，boot_page_table充当了操作系统尚未初始化完成之前临时页表的用途。
+- 跳转到`rust_main`第一条指令之前就已经开启了虚拟内存。因此rust_main的虚拟地址会经过翻译得到物理地址。cpu首先会查看satp寄存器里面的根页表地址。之后取rust_main虚拟地址的38~30位作为页表的索引查询页表项，这里应该是510项。查询之后发现第510项V位为1（有效），RWX 3位的值都为1（不全是0），所以这一项对应的是大小为1G的大虚拟页。把这一项映射的物理地址0x80000000,加上虚拟地址里面的偏移得到rust_main的物理地址，从物理地址加载第一条指令。
+
+### 分析：为什么 Mapping 中的 page_tables 和 mapped_pairs 都保存了一些 FrameTracker？二者有何不同？
+题目的更新可能没有赶上代码，这里应该说的是MemorySet里面的mapping和allocated_pairs。仅看MemorySet的new_kernel,add_segment或者remove_segment会发现两者的添加和删除是同步的, 好像没有什么区别……
+```Rust
+self.allocated_pairs
+    .extend(self.mapping.map(&segment, init_data)?);
+```
+但实际上Mapping内部的操作要复杂得多。首先Mapping::new会存下root_table根页表，这个是allocated_pairs里面没有的。其次，Mapping::map里面对MapType::Linear类型映射的添加返回值是Vec::new，也就是内核镜像的那一块地址的映射会存在页表里，但是不会添加到allocated_pairs里面。再次，对于MapType::Framed类型的映射会依次调用map->map_one->find_entry。
+```Rust
+for vpn_slice in &vpn.levels()[1..] {
+    if entry.is_empty() {
+        ...
+        self.page_tables.push(new_table);
+    }
+    ...
+}
+```
+这个循环会往page_tables里面添加第一二级页表，但返回的时候直会返回第三级页表。一二级页表不会存在allocated_pairs里面。
+综上所述，allocated_pairs保存的映射只是mapping的一个子集，仅保存进程自己分配的那一部分映射，像线程的栈等。而Mapping存的东西就比较多，包括了内核映射的部分还有页表占用的页部分等。
+
+### 分析：假设某进程需要虚拟地址 A 到物理地址 B 的映射，这需要操作系统来完成。那么操作系统在建立映射时有没有访问 B？如果有，它是怎么在还没有映射的情况下访问 B 的呢？
+- 建立映射只需要在页表中添加对应项即可，无需访问B那一块物理地址
+- 没有映射一般先会在页表里面添加映射在进行访问。如果硬是要在没有映射的条件下访问物理地址的话可以参考Mapping::map里面对init_data的操作。通过线性偏移对物理内存进行访问。
+```Rust
+dst_slice.copy_from_slice(src_slice);
+```
+dst_slice的类型是&mut FrameTracker，是没有copy_from_slice的方法的。魔法发生在`.`上，Rust会自动解引用调用DerefMut。 DerefMut方法里调用了deref_kernel，会把FrameTracker所存的物理地址根据线性偏移得到虚拟地址，之后返回一个u8的数组。u8的数组会调用copy_from_slice，这个是core里面实现的，类似于c标准库的memcpy函数，完成原始数据拷贝。
+
+
 ## 问题
 1. 用la替代lui加载地址
 在修改`entry.S`的过程中，没有多想就把
